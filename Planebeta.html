@@ -1,0 +1,1926 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>🚀 Hindari Meteor V5 (Fix Skin Carousel)</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;font-family:Arial, sans-serif;}
+  body{background:#000;overflow:hidden;user-select:none;touch-action:none;}
+  #menu,#shop,#inventory,#gameOver,#themeMenu,#debugPanel,#skinCheatPanel{position:absolute;top:0;left:0;width:100%;height:100%;
+    display:flex;flex-direction:column;justify-content:center;align-items:center;background:rgba(0,0,0,0.85);color:white;z-index:50;}
+  /* ⚡️ UPDATE: Warna tombol jadi Neon */
+  button{background:#0ff;color:#000;border:none;padding:10px 18px;margin:6px;font-size:17px;border-radius:10px;cursor:pointer;transition:0.18s;font-weight:bold;}
+  button:hover{opacity:0.8;}
+  canvas{display:block;background:transparent;z-index:0;}
+  #hud{position:absolute;top:10px;left:12px;color:white;font-size:18px;z-index:45;font-weight:bold;display:flex;flex-direction:column;gap:6px;align-items:flex-start;}
+  #coinHud{position:absolute;top:10px;right:12px;color:gold;font-size:18px;z-index:45;font-weight:bold;}
+  #cheatStatus{position:absolute;bottom:10px;left:10px;color:lime;font-size:16px;z-index:45;font-weight:bold;display:none;}
+  input[type="text"]{padding:8px;margin:5px;border-radius:8px;border:none;text-align:center;}
+  /* ⚡️ UPDATE: Container carousel skin/item di shop */
+  #skinShopCarousel, #itemShopCarousel{
+    max-height: 40vh; /* Agar bisa digeser horizontal */
+    overflow-x: auto;
+    width: 90%;
+    max-width: 500px;
+    padding: 12px;
+    background: rgba(255,255,255,0.06);
+    margin-bottom: 12px;
+    border-radius: 10px;
+    color: #eee;
+    display: flex;
+    flex-direction: row; /* Horizontal scroll */
+    gap: 15px;
+  }
+  .shopItemCard{
+    min-width: 200px; /* Ukuran kartu agar bisa digeser */
+    padding: 10px;
+    background: rgba(0,0,0,0.4);
+    border-radius: 8px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .shopItemCard p{margin-bottom: 6px;}
+
+  #shopItems,#inventoryList{
+    max-height:28vh;overflow-y:auto;width:86%;max-width:460px;padding:12px;background:rgba(255,255,255,0.06);margin-bottom:12px;border-radius:10px;color:#eee;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+
+  #laserBtn{position:absolute;bottom:18px;left:30%;transform:translateX(-50%);z-index:46;padding:12px 18px;border-radius:12px;background:purple;color:white;font-weight:bold;display:none;min-width:160px;}
+  #darkSpiritPushBtn{position:absolute;bottom:18px;right:30%;transform:translateX(50%);z-index:46;padding:12px 18px;border-radius:12px;background:darkblue;color:white;font-weight:bold;display:none;min-width:160px;}
+  #freezeOverlay{position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(180,220,255,0.06);z-index:44;display:none;pointer-events:none;}
+  #msgSmall{position:absolute;bottom:80px;left:50%;transform:translateX(-50%);z-index:46;color:white;background:rgba(0,0,0,0.5);padding:6px 10px;border-radius:8px;display:none;}
+  .limitedTag{display:inline-block;background:gold;color:#000;padding:3px 8px;border-radius:8px;margin-left:8px;font-weight:bold;}
+  #lifeHud{position:absolute;top:46px;left:12px;color:gold;font-size:16px;z-index:45;font-weight:bold;display:none;}
+
+  /* CSS untuk Skin/Item Selector di Inventory */
+  #skinSelector{display:flex;align-items:center;justify-content:center;margin:16px;user-select:none;}
+  #skinSelector button{padding:10px 15px;font-size:24px;background:rgba(255,255,255,0.1); color: white;}
+  #previewBox{margin:0 15px;text-align:center;}
+  #skinPreviewCanvas{background:rgba(255,255,255,0.05);border:2px solid #555;border-radius:10px;width:120px;height:120px;}
+  #previewSkinName{margin-top:8px;font-size:20px;min-height: 1.2em;}
+  #skinStatusText{margin:4px;font-weight:bold;min-height:1.2em;color:lime;}
+  #selectSkinBtn{background:green;font-weight:bold; color: white !important;}
+  #selectSkinBtn:disabled{background:#555;opacity:0.7;}
+</style>
+</head>
+<body>
+<div id="hud">
+  <div id="scoreText">Skor: 0</div>
+  <div id="skinText">Skin: default</div>
+  <div id="itemTimer" style="display:none;color:lime;font-size: 16px;"></div>
+  <div id="instingIndicator" style="color:cyan;font-size:16px;display:none;">Insting: READY</div>
+</div>
+<div id="coinHud">💰 Koin: 0</div>
+<div id="cheatStatus">
+  Mode Tembus Permanen: <span id="isTembus">OFF</span>
+  <button id="toggleTembusBtn">Aktifkan</button>
+</div>
+
+<div id="msgSmall"></div>
+<div id="freezeOverlay"></div>
+<canvas id="gameCanvas"></canvas>
+<button id="laserBtn">LASER 🔫 (Ready)</button>
+<button id="darkSpiritPushBtn" style="display:none;">DORONG 💥 (Ready)</button> <div id="lifeHud">Nyawa: 0</div>
+
+<div id="menu">
+  <h1>🚀 Hindari Meteor V5</h1>
+  <input type="text" id="kodeInput" placeholder="Masukkan Kode Rahasia">
+  <button id="kodeBtn">KIRIM</button>
+  <button id="playBtn">Mulai Game</button>
+  <button id="shopBtn">Shop</button>
+  <button id="invBtn">Inventory</button>
+  <button id="themeBtn">Tema</button>
+</div>
+
+<div id="shop" style="display:none;">
+  <h2>🛒 SHOP</h2>
+
+  <h3>Pilih Skin</h3>
+  <div id="skinShopCarousel"></div>
+
+  <hr style="width: 80%; margin: 15px 0;">
+
+  <h3>Beli Item</h3>
+  <div id="itemShopCarousel"></div>
+
+  <button onclick="backToMenu()">Kembali</button>
+</div>
+
+<div id="inventory" style="display:none;">
+  <h2>🎒 INVENTORY</h2>
+  
+  <h3>Pilih Skin</h3>
+  <div id="skinSelector">
+    <button id="prevSkinBtn">◀</button>
+    <div id="previewBox">
+      <canvas id="skinPreviewCanvas" width="100" height="100"></canvas>
+      <h3 id="previewSkinName">Default</h3>
+    </div>
+    <button id="nextSkinBtn">▶</button>
+  </div>
+  <p id="skinStatusText"></p>
+  <button id="selectSkinBtn">Pilih Skin Ini</button>
+  
+  <hr style="width: 80%; margin: 15px 0;">
+  
+  <h3>Item Dimiliki</h3>
+  <div id="inventoryList"></div> <button onclick="backToMenu()">Kembali</button>
+</div>
+
+
+<div id="themeMenu" style="display:none;">
+  <h2>Pilih Tema</h2>
+  <button onclick="setTheme('neon')">💠 Neon Futuristik</button>
+  <button onclick="setTheme('space')">🌌 Luar Angkasa</button>
+  <button onclick="setTheme('diamond')">💎 Diamond Rainbow</button>
+  <button onclick="backToMenu()">Kembali</button>
+</div>
+
+<div id="debugPanel" style="display:none;">
+  <h2>🛠️ DEBUG PANEL</h2>
+  <button onclick="spawnMeteorByType('boss')">Panggil BOSS (1x)</button>
+  <button onclick="spawnMeteorByType('giant')">Panggil Giant Meteor</button>
+  <button onclick="spawnMeteorByType('dark')">Panggil Dark Meteor</button>
+  <button onclick="spawnMeteorByType('ice')">Panggil Ice Meteor</button>
+  <button onclick="clearAllMeteors(); showMsg('Semua Meteor Dihapus', 90);">Clear All Meteor</button>
+  <button onclick="backToMenu()">Kembali</button>
+</div>
+
+<div id="skinCheatPanel" style="display:none;">
+  <h2>🔓 SEMUA SKIN</h2>
+  <p>Pilih Skin yang ingin ditambahkan ke Inventaris:</p>
+  <div id="allSkinsList" style="max-height: 50vh; overflow-y: auto; width: 90%; max-width: 400px; padding: 10px; background: rgba(255,255,255,0.1); border-radius: 8px;"></div>
+  <button onclick="backToMenu()">Kembali</button>
+</div>
+
+<div id="gameOver" style="display:none;">
+  <h2>💥 GAME OVER 💥</h2>
+  <p id="finalScore"></p>
+  <button id="restartBtn">Main Lagi</button>
+  <button id="backMenuFromGameOver">Menu</button>
+</div>
+
+<script>
+/* ⚡️ RESET LOCALSTORAGE UNTUK FIX CHEAT ILEGAL */
+
+/* =========================
+   Data & State Initialization
+   ========================= */
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+function resize() { canvas.width = innerWidth; canvas.height = innerHeight; }
+resize(); window.addEventListener('resize', resize);
+
+let invData = JSON.parse(localStorage.getItem('inventory')) || { skins:['default'], items:[], activeSkin:'default' };
+let coinData = parseInt(localStorage.getItem('coins')) || 0;
+let isCheatActive = false;
+let isTembusPermActive = false;
+
+// KODE INI BENAR: y: canvas.height-90 artinya player ada DI BAWAH.
+let player = { x: canvas.width/2, y: canvas.height-90, size: 40, color: 'cyan', skin: invData.activeSkin, speed: 12, lives: 1 };
+let meteors = [];
+let score = 0;
+let gameOver = false;
+let theme = 'space';
+
+let meteorTimer = 0;
+let spawnInterval = 60;
+let currentScoreMultiplier = isCheatActive ? 3 : 1;
+
+let laserCooldown = 0, meteorSkillCooldown = 0, goldenCooldown = 0;
+let darkSpiritAttractCooldown = 0, darkSpiritPushCooldown = 0;
+let diamondShieldCooldown = 0, diamondLaserCooldown = 0; // ⚡️ NEW: Diamond Skills
+let rainbowLaserCooldown = 0, rainbowShineCooldown = 0; // ⚡️ NEW: Rainbow Skills
+
+let laserReady = true, meteorReady = true, goldenReady = true;
+let attractReady = true, pushReady = true;
+let diamondShieldReady = true, diamondLaserReady = true; // ⚡️ NEW
+let rainbowLaserReady = true, rainbowShineReady = true; // ⚡️ NEW
+
+// ⚡️ Insting Meteor System
+let instingActive = false;
+let instingTimer = 0;
+let instingCooldown = 0;
+
+let totalMeteorsFallen = parseInt(localStorage.getItem('totalMeteorsFallen')) || 0; 
+let totalCoinsGainedFromMeteors = 0; 
+
+let giantActive = false;
+let giantCooldownTimer = 0;
+let freezeTimer = 0; // Durasi beku
+let goldenLaserEffectTimer = 0; // Durasi laser Golden/Dark Spirit
+let activeItem = null;
+let itemDuration = 0;
+let itemSkillCooldownLock = 0; // Untuk petir bos
+let lastGoldenHitFrame = 0;
+
+let diamondShieldTimer = 0; // ⚡️ NEW: Durasi Shield Diamond
+let diamondLaserTimer = 0; // ⚡️ NEW: Durasi Laser Diamond
+let rainbowLaserTimer = 0; // ⚡️ NEW: Durasi Laser Rainbow
+let rainbowShineActive = false; // ⚡️ NEW: State Shine Rainbow
+
+// ⚡️ NEW: BOSS METEOR STATE
+let bossActive = false;
+let bossHP = 0;
+let bossAttackTimer = 0;
+let bossUltiTimer = 0;
+let bossLightningTimer = 0;
+const bossMaxHP = 1000;
+
+
+/* =========================
+   Shop items
+   ========================= */
+let shopItems = [
+  {name:"🔰 Perisai",type:"item",price:200,desc:"Tahan 1 tabrakan", itemEffect:"shield"},
+  {name:"🕓 Pelambat Meteor",type:"item",price:300,desc:"Meteor lambat 5 detik", itemEffect:"slow"},
+  {name:"🌀 Mode Tembus",type:"item",price:400,desc:"Tembus meteor 3 detik", itemEffect:"ghost"},
+  {name:"🚀 Skin Merah",type:"skin",price:500,skin:"red"},
+  {name:"🚀 Skin Hijau",type:"skin",price:500,skin:"green"},
+  {name:"🚀 Skin Biru",type:"skin",price:500,skin:"blue"},
+  {name:"✨ Skin Violet (Laser)",type:"skin",price:8000,skin:"violet",desc:"Punya LASER (cooldown 15s)"},
+  {name:"🌑 Skin Dark Spirit",type:"skin",price:25000,skin:"dark_spirit",desc:"Menarik/Mendorong meteor, Laser Hitam", limited:true},
+  {name:"🌈 Skin Rainbow",type:"skin",price:12000,skin:"rainbow", desc:"3 Nyawa, Laser & Sinar Pelindung"}, // ⚡️ UPDATE: Tambah Deskripsi BUFF
+  {name:"💎 Skin Diamond",type:"skin",price:20000,skin:"diamond", desc:"4 Nyawa, Diamond Shield & Laser Beruntun"}, // ⚡️ UPDATE: Tambah Deskripsi BUFF
+  {name:"🪙 Golden Shard",type:"skin",price:17500,skin:"golden",desc:"LIMITED - Pesawat emas, 3 nyawa, Laser besar (25s cooldown)", limited:true}
+];
+
+/* =========================
+   Drawing helpers
+   ========================= */
+// ... (Fungsi drawPlayer, drawSkinPreview, drawMeteor, drawBossMeteor sama seperti sebelumnya, kecuali penambahan visual untuk Diamond/Rainbow) ...
+
+function drawPlayer(){
+  ctx.save();
+  
+  // Efek Insting Meteor: Aura Putih
+  if(player.skin === 'insting_meteor' && itemDuration > 0){
+    ctx.strokeStyle = 'white';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(player.x, player.y, player.size*1.8, 0, Math.PI*2);
+    ctx.stroke();
+  }
+  
+  // ⚡️ NEW: Efek Shine Rainbow
+  if(player.skin === 'rainbow' && rainbowShineActive){
+     const g=ctx.createLinearGradient(0,0,canvas.width,canvas.height);
+     g.addColorStop(0,'red');g.addColorStop(0.2,'orange');g.addColorStop(0.4,'yellow');
+     g.addColorStop(0.6,'green');g.addColorStop(0.8,'blue');g.addColorStop(1,'violet');
+     ctx.fillStyle = g;
+     ctx.globalAlpha = 0.15;
+     ctx.fillRect(0,0,canvas.width,canvas.height);
+     ctx.globalAlpha = 1;
+  }
+  
+  // Golden Shard visuals
+  if(player.skin === 'golden'){
+    ctx.fillStyle = 'gold';
+    ctx.beginPath();
+    ctx.moveTo(player.x, player.y - player.size - 4);
+    ctx.lineTo(player.x - player.size, player.y + player.size/2);
+    ctx.lineTo(player.x + player.size, player.y + player.size/2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,215,0,0.4)'; ctx.lineWidth = 6; ctx.beginPath();
+    ctx.arc(player.x, player.y, player.size+6, 0, Math.PI*2); ctx.stroke();
+  } else if(player.skin === 'meteor_skin'){
+    ctx.fillStyle = '#c14a1a';
+    ctx.beginPath();
+    ctx.arc(player.x, player.y, player.size+6, 0, Math.PI*2);
+    ctx.fill();
+    ctx.fillStyle = 'orange';
+    ctx.beginPath();
+    ctx.moveTo(player.x, player.y + player.size + 8);
+    ctx.lineTo(player.x-12, player.y + player.size + 28);
+    ctx.lineTo(player.x+12, player.y + player.size + 28);
+    ctx.closePath(); ctx.fill();
+  } else if(player.skin === 'dark_spirit'){
+    ctx.fillStyle = '#111';
+    ctx.beginPath();
+    ctx.arc(player.x, player.y, player.size, 0, Math.PI*2);
+    ctx.fill();
+    ctx.fillStyle = 'white';
+    ctx.beginPath();
+    ctx.arc(player.x, player.y - player.size/4, player.size/4, 0, Math.PI*2);
+    ctx.fill();
+  } else if(player.skin === 'insting_meteor'){
+    ctx.fillStyle = 'white';
+    ctx.beginPath();
+    ctx.moveTo(player.x, player.y - player.size);
+    ctx.lineTo(player.x - player.size/2, player.y + player.size/2);
+    ctx.lineTo(player.x + player.size/2, player.y + player.size/2);
+    ctx.closePath();
+    ctx.fill();
+  }
+  else {
+    if(player.skin==='rainbow'){
+      const g=ctx.createLinearGradient(player.x-20,player.y-20,player.x+20,player.y+20);
+      g.addColorStop(0,'red');g.addColorStop(0.2,'orange');g.addColorStop(0.4,'yellow');
+      g.addColorStop(0.6,'green');g.addColorStop(0.8,'blue');g.addColorStop(1,'violet');
+      ctx.fillStyle = g;
+    } else if(player.skin==='diamond'){
+      ctx.fillStyle='aqua'; ctx.shadowColor='white'; ctx.shadowBlur=18;
+    } else if(player.skin==='violet'){
+      ctx.fillStyle='magenta';
+    } else {
+      player.color = player.skin === 'default' ? 'cyan' : player.skin;
+      ctx.fillStyle = player.color;
+    }
+    ctx.beginPath();
+    ctx.moveTo(player.x, player.y - player.size);
+    ctx.lineTo(player.x - player.size/2, player.y + player.size/2);
+    ctx.lineTo(player.x + player.size/2, player.y + player.size/2);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  // Shield visual
+  if((activeItem && activeItem.itemEffect === 'shield') || (player.skin === 'diamond' && diamondShieldTimer > 0)){ // ⚡️ UPDATE
+    ctx.strokeStyle = player.skin === 'diamond' ? 'aqua' : 'yellow';
+    ctx.lineWidth = 5;
+    ctx.beginPath();
+    ctx.arc(player.x, player.y, player.size*1.6, 0, Math.PI*2);
+    ctx.stroke();
+  }
+  
+  // Ghost visual (tembus)
+  if(activeItem && activeItem.itemEffect === 'ghost'){
+    ctx.globalAlpha = 0.4;
+  }
+
+  ctx.restore();
+}
+
+// PERBAIKAN: Fungsi baru untuk menggambar preview skin di inventory/shop
+function drawSkinPreview(canvasEl, skin) {
+  const ctx = canvasEl.getContext('2d');
+  const w = canvasEl.width;
+  const h = canvasEl.height;
+  ctx.clearRect(0, 0, w, h);
+  
+  // Set player-like object for preview
+  const p = { x: w / 2, y: h / 2 + 5, size: 20 }; // Centered
+  ctx.save();
+  // (Logika gambar skin sama seperti di drawPlayer, dikurangi efek dinamis)
+  if (skin === 'golden') {
+    ctx.fillStyle = 'gold';
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y - p.size - 2);
+    ctx.lineTo(p.x - p.size, p.y + p.size/2);
+    ctx.lineTo(p.x + p.size, p.y + p.size/2);
+    ctx.closePath();
+    ctx.fill();
+  } else if (skin === 'meteor_skin') {
+    ctx.fillStyle = '#c14a1a';
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size+3, 0, Math.PI*2);
+    ctx.fill();
+  } else if (skin === 'dark_spirit') {
+    ctx.fillStyle = '#111';
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size, 0, Math.PI*2);
+    ctx.fill();
+    ctx.fillStyle = 'white';
+    ctx.beginPath();
+    ctx.arc(p.x, p.y - p.size/4, p.size/4, 0, Math.PI*2);
+    ctx.fill();
+  } else if (skin === 'insting_meteor') {
+    ctx.fillStyle = 'white';
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y - p.size);
+    ctx.lineTo(p.x - p.size/2, p.y + p.size/2);
+    ctx.lineTo(p.x + p.size/2, p.y + p.size/2);
+    ctx.closePath();
+    ctx.fill();
+  }
+  else {
+    if(skin==='rainbow'){
+      const g=ctx.createLinearGradient(p.x-10,p.y-10,p.x+10,p.y+10);
+      g.addColorStop(0,'red');g.addColorStop(0.2,'orange');g.addColorStop(0.4,'yellow');
+      g.addColorStop(0.6,'green');g.addColorStop(0.8,'blue');g.addColorStop(1,'violet');
+      ctx.fillStyle = g;
+    } else if(skin==='diamond'){
+      ctx.fillStyle='aqua'; ctx.shadowColor='white'; ctx.shadowBlur=10;
+    } else if(skin==='violet'){
+      ctx.fillStyle='magenta';
+    } else {
+      ctx.fillStyle = skin === 'default' ? 'cyan' : skin;
+    }
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y - p.size);
+    ctx.lineTo(p.x - p.size/2, p.y + p.size/2);
+    ctx.lineTo(p.x + p.size/2, p.y + p.size/2);
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.restore();
+}
+// ... (Fungsi drawMeteor & drawBossMeteor sama seperti sebelumnya) ...
+function drawMeteor(m){
+  ctx.save();
+  if(m.type === 'giant'){ ctx.fillStyle = '#7a3b00'; ctx.beginPath(); ctx.arc(m.x,m.y,m.size,0,Math.PI*2); ctx.fill(); 
+    ctx.strokeStyle='rgba(0,0,0,0.2)'; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(m.x-m.size/2,m.y); ctx.lineTo(m.x+m.size/2,m.y); ctx.stroke();
+  }
+  else if(m.type === 'ice'){ ctx.fillStyle = '#bfefff'; ctx.beginPath(); ctx.arc(m.x,m.y,m.size,0,Math.PI*2); ctx.fill(); }
+  else if(m.type === 'dark'){ ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(m.x,m.y,m.size,0,Math.PI*2); ctx.fill(); ctx.fillStyle='rgba(255,255,255,0.06)'; ctx.fillRect(m.x-m.size,m.y-m.size, m.size*2, m.size*2);}
+  else if(m.type === 'fire'){ ctx.fillStyle='orange'; ctx.beginPath(); ctx.arc(m.x,m.y,m.size,0,Math.PI*2); ctx.fill(); ctx.fillStyle='red'; ctx.beginPath(); ctx.moveTo(m.x, m.y - m.size); ctx.lineTo(m.x-6, m.y - m.size - 12); ctx.lineTo(m.x+6, m.y - m.size - 12); ctx.closePath(); ctx.fill();}
+  else { ctx.fillStyle='orange'; ctx.beginPath(); ctx.arc(m.x,m.y,m.size,0,Math.PI*2); ctx.fill(); }
+  ctx.restore();
+}
+function drawBossMeteor(){
+  if(!bossActive) return;
+  
+  const bSize = canvas.width / 2;
+  const bX = canvas.width / 2;
+  const bY = -bSize / 2;
+  
+  ctx.fillStyle = '#666';
+  ctx.beginPath();
+  ctx.arc(bX, bY, bSize, 0, Math.PI, true);
+  ctx.fill();
+  
+  ctx.fillStyle = 'red';
+  ctx.beginPath();
+  ctx.arc(bX, bY + 50, 20, 0, Math.PI*2);
+  ctx.fill();
+  
+  ctx.strokeStyle = 'rgba(0,0,0,0.4)'; ctx.lineWidth = 4;
+  ctx.beginPath(); ctx.moveTo(bX - 50, bY); ctx.lineTo(bX + 50, bY + 60); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(bX, bY + 10); ctx.lineTo(bX - 80, bY + 70); ctx.stroke();
+}
+
+
+/* =========================
+   Meteor creation & logic
+   ========================= */
+
+function clearAllMeteors(){ meteors = []; }
+
+function spawnGiantMeteor(){
+  if(bossActive) return;
+  giantActive = true;
+  meteors = meteors.filter(m => m.type === 'dark');
+  meteors.push({ x: Math.random()*canvas.width, y: -150, size: Math.max(100, canvas.width*0.08), speed: 0.6, type:'giant' , absorbed:0});
+  giantCooldownTimer = 0;
+}
+
+// ⚡️ NEW: Logika Bos Meteor
+function createBossMeteor(){
+  if(bossActive) return;
+  bossActive = true;
+  bossHP = bossMaxHP;
+  bossAttackTimer = 1;
+  bossUltiTimer = 1;
+  bossLightningTimer = 1;
+  clearAllMeteors();
+  showMsg('BOSS METEOR MUNCUL! Hancurkan dia!', 180);
+}
+
+function endBossFight(isWin){
+  bossActive = false;
+  bossHP = 0;
+  if(isWin){
+    coinData += 5000;
+    showMsg('BOSS HANCUR! +5000 Koin!', 180);
+    if(!invData.skins.includes('insting_meteor')){
+      invData.skins.push('insting_meteor');
+      saveData();
+      showMsg('SKIN LIMITED BARU: Insting Meteor didapat!', 180);
+    }
+  }
+}
+
+function createMeteor(){
+  if(bossActive) return;
+  
+  if(totalMeteorsFallen > 0 && totalMeteorsFallen % 1000 === 0 && !bossActive){
+    createBossMeteor();
+    return;
+  }
+  
+  if(giantActive) return;
+  const r = Math.random()*100;
+  if(r < 0.5){
+    spawnGiantMeteor();
+    return;
+  }
+  let type = 'normal';
+  if(r < 0.5 + 10){ type = 'ice'; }
+  else if(r < 0.5 + 10 + 5){ 
+    type = 'fire'; 
+    let baseSpeed = Math.random()*3 + 2;
+    for(let i=0; i<5; i++){
+      meteors.push({ x: Math.random()*canvas.width, y: -30 - (i*40), size: Math.random()*28 + 18, speed: baseSpeed, type: 'fire' });
+    }
+    return;
+  }
+  
+  let baseSpeed = Math.random()*3 + 2;
+  meteors.push({ x: Math.random()*canvas.width, y: -30, size: Math.random()*28 + 18, speed: baseSpeed, type: type });
+}
+
+function moveMeteors(){
+  // ... (Logika Dark Meteor & Meteor Shard sama seperti sebelumnya) ...
+  const dark = meteors.find(m=>m.type==='dark');
+  if(dark){
+    for(let m of meteors){
+      if(m === dark) continue;
+      const dx = dark.x - m.x, dy = dark.y - m.y;
+      const dist = Math.sqrt(dx*dx+dy*dy);
+      if(dist < 300){
+        m.x += dx * 0.02;
+        m.y += dy * 0.02;
+      }
+      if(dist < dark.size + m.size){
+        m.consume = true;
+        dark.absorbed = (dark.absorbed||0) + 1;
+      }
+    }
+    meteors = meteors.filter(m=>!m.consume);
+  }
+
+  for(let m of meteors){
+    let currentSpeed = (m.speed || 2);
+    if(activeItem && activeItem.itemEffect === 'slow'){
+        currentSpeed *= 0.5;
+    }
+    m.y += currentSpeed;
+  }
+
+  for(let i = meteors.length-1; i>=0; i--){
+    const m = meteors[i];
+    if(m.type === 'dark' && m.y > canvas.height + 30){
+      const shards = 12;
+      for(let s=0;s<shards;s++){
+        const angle = Math.PI/2 + (s - shards/2) * 0.25;
+        meteors.push({ x: m.x, y: canvas.height-60, size: 8+Math.random()*6, speed: 6, vx: Math.cos(angle)*4, vy: Math.sin(angle)*4, type:'shard' });
+      }
+      meteors.splice(i,1);
+    }
+  }
+
+  for(let m of meteors){
+    if(m.vx || m.vy){ m.x += (m.vx||0); m.y += (m.vy||m.speed||3); }
+  }
+
+  for(let i=meteors.length-1;i>=0;i--){
+    const m = meteors[i];
+    if(m.y > canvas.height + 60){
+      if(m.type !== 'shard' && m.type !== 'giant') totalMeteorsFallen++;
+      meteors.splice(i,1);
+    }
+  }
+
+  if(totalMeteorsFallen > 0 && totalMeteorsFallen % 100 === 0 && !bossActive){
+    if(!meteors.some(mm=>mm.type==='dark' || mm._spawnedDarkFor === totalMeteorsFallen)){
+      const d = { x: Math.random()*canvas.width, y: -120, size: 60, speed: 0.5, type:'dark', absorbed:0 };
+      d._spawnedDarkFor = totalMeteorsFallen;
+      meteors.push(d);
+    }
+  }
+}
+
+/* =========================
+   Collision & Lives handling
+   ========================= */
+
+function detectCollision(){
+  if(isTembusPermActive) return false;
+  
+  // Insting Meteor: Auto-menghindar
+  if(player.skin === 'insting_meteor' && itemDuration > 0){
+    itemDuration--;
+    return false;
+  }
+  
+  // ⚡️ NEW: Rainbow Shine: Meteor yang sudah muncul tidak melukai
+  if(player.skin === 'rainbow' && rainbowShineActive){
+    for(let i = meteors.length-1; i >= 0; i--){
+      const m = meteors[i];
+      if(m._immune) return false;
+    }
+  }
+  
+  for(let i = meteors.length-1; i >= 0; i--){
+    const m = meteors[i];
+    const dx = m.x - player.x;
+    const dy = m.y - player.y;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    if(dist < m.size + player.size/2){
+      
+      // ⚡️ NEW: Pengecualian Shine Rainbow (Jika meteor di-tag, abaikan)
+      if(m._immune) return false;
+      
+      // Meteor Raksasa tidak memberikan skin
+      if(m._isRaksasa) {
+        meteors.splice(i,1);
+        return handlePlayerHit();
+      }
+
+      // ⚡️ UPDATE: Semua skin bisa beku kena ice
+      if(m.type === 'ice'){
+        freezeTimer = 300;
+        document.getElementById('freezeOverlay').style.display = 'block';
+        showMsg('MEMBEKU! 🥶 Tidak bisa bergerak selama 5 detik!', 300);
+        setTimeout(()=>{ document.getElementById('freezeOverlay').style.display = 'none'; }, 5000);
+        meteors.splice(i,1);
+        return false;
+      }
+
+      if(m.type === 'fire'){
+        coinData -= 500; if(coinData < 0) coinData = 0; saveData();
+        showMsg('TERBAKAR! -500 Koin 🔥', 120);
+      }
+      
+      // ⚡️ UPDATE: Shield Item / Diamond Shield
+      if((activeItem && activeItem.itemEffect === 'shield') || (player.skin === 'diamond' && diamondShieldTimer > 0)){
+        if(activeItem && activeItem.itemEffect === 'shield'){
+          activeItem = null; itemDuration = 0;
+          document.getElementById('itemTimer').style.display = 'none';
+          showMsg('Perisai Item hancur!', 90);
+        } else if (player.skin === 'diamond' && diamondShieldTimer > 0) {
+          diamondShieldTimer = 0;
+          showMsg('Pelindung Berlian hancur!', 90);
+        }
+        meteors.splice(i,1);
+        return false;
+      }
+      
+      if(activeItem && activeItem.itemEffect === 'ghost'){
+        meteors.splice(i,1);
+        return false;
+      }
+
+      if(m.type === 'giant'){
+        if(!invData.skins.includes('meteor_skin')) invData.skins.push('meteor_skin');
+        invData.activeSkin = 'meteor_skin';
+        player.skin = 'meteor_skin';
+        player.speed = 18;
+        saveData();
+        meteors.splice(i,1);
+        return handlePlayerHit();
+      }
+
+      if(m.type === 'dark'){
+        meteors.splice(i,1);
+        return handlePlayerHit();
+      }
+
+      meteors.splice(i,1);
+      return handlePlayerHit();
+    }
+  }
+  return false;
+}
+
+function handlePlayerHit(){
+  if((player.skin === 'golden' || player.skin === 'rainbow' || player.skin === 'diamond') && player.lives > 1){ // ⚡️ UPDATE: Multi-lives
+    player.lives--;
+    updateLifeHud();
+    showMsg(`${player.skin} hit! Nyawa tersisa: ` + player.lives, 120);
+    return false;
+  }
+  return true;
+}
+
+/* =========================
+   Laser & Skin Skills
+   ========================= */
+// ... (fireLaserViolet, meteorSkinTripleFire, fireGoldenLaser, darkSpiritAttract, darkSpiritPush sama seperti sebelumnya) ...
+function fireLaserViolet(){
+  if(bossActive && itemSkillCooldownLock === 0){ bossHP -= 5; return; }
+  
+  const coneWidth = 120;
+  const coneHeight = 450;
+  for(let i = meteors.length-1; i>=0; i--){
+    const m = meteors[i];
+    if(m.y < player.y && Math.abs(m.x - player.x) < coneWidth && (player.y - m.y) < coneHeight){
+      if(m.type === 'dark' || m.type === 'giant' || m._isRaksasa) continue;
+      meteors.splice(i,1);
+      totalMeteorsFallen++;
+    }
+  }
+  if(itemSkillCooldownLock === 0){ laserReady = false; laserCooldown = 15 * 60; }
+  showMsg('Violet Laser fired!', 120);
+}
+
+function meteorSkinTripleFire(){
+  if(bossActive && itemSkillCooldownLock === 0){ bossHP -= 5; return; }
+  
+  for(let a=-1;a<=1;a++){
+    meteors.push({
+      x: player.x, y: player.y - 30, size: 6, speed: 8, vx: a * 3, vy: -6, type: 'proj', ttl: 80
+    });
+  }
+  if(itemSkillCooldownLock === 0){ meteorReady = false; meteorSkillCooldown = 30 * 60; }
+  showMsg('Meteor Skin: Triple Fire!', 120);
+}
+
+function fireGoldenLaser(){
+  if(bossActive && itemSkillCooldownLock === 0){ 
+    if(gameOver) return;
+    if((animId || 0) - lastGoldenHitFrame < 60){
+      showMsg('Golden Laser Cooldown: 1s', 60); 
+      return; 
+    }
+    bossHP -= 10; 
+    lastGoldenHitFrame = animId || 60;
+    showMsg('Golden Shard: Damage 10!', 60);
+    return;
+  }
+  
+  for(let i = meteors.length-1; i>=0; i--){
+    const m = meteors[i];
+    if(m.type === 'dark' || m.type === 'giant' || m._isRaksasa) continue;
+    meteors.splice(i,1);
+    totalMeteorsFallen++;
+  }
+  if(itemSkillCooldownLock === 0){ goldenReady = false; goldenCooldown = 25 * 60; }
+  showMsg('Golden Shard: Super Laser!', 150);
+  goldenLaserEffectTimer = 15;
+}
+
+function darkSpiritAttract(){
+  if(itemSkillCooldownLock > 0) return;
+  
+  const attractDuration = 2 * 60;
+  const laserDuration = 5 * 60;
+  let totalAbsorbed = 0;
+  
+  for(let m of meteors){
+    if(m.type === 'dark' || m.type === 'giant' || m.type === 'proj' || m._isRaksasa) continue;
+    m._attract = true;
+  }
+  
+  let attractInterval = setInterval(()=>{
+    for(let i = meteors.length-1; i >= 0; i--){
+      const m = meteors[i];
+      if(m._attract){
+        const dx = player.x - m.x;
+        const dy = player.y - m.y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        if(dist < player.size * 1.5){
+          meteors.splice(i,1);
+          totalAbsorbed++;
+          totalMeteorsFallen++;
+        } else {
+          m.x += dx * 0.1;
+          m.y += dy * 0.1;
+        }
+      }
+    }
+  }, 1000/60); 
+  
+  showMsg('Dark Spirit: Menarik Meteor!', attractDuration);
+  
+  setTimeout(()=>{
+    clearInterval(attractInterval);
+    coinData += totalAbsorbed * 2;
+    totalCoinsGainedFromMeteors += totalAbsorbed * 2;
+    goldenLaserEffectTimer = laserDuration; 
+    showMsg(`LASER HITAM! +${totalAbsorbed*2} Koin!`, laserDuration);
+    
+    for(let i = meteors.length-1; i >= 0; i--){
+        const m = meteors[i];
+        if(m.type !== 'dark' && m.type !== 'giant' && m.type !== 'proj' && !m._isRaksasa){
+            meteors.splice(i,1);
+            totalMeteorsFallen++;
+        }
+    }
+  }, (attractDuration/60) * 1000);
+  
+  attractReady = false; darkSpiritAttractCooldown = 40 * 60;
+  pushReady = false; darkSpiritPushCooldown = 40 * 60;
+}
+
+function darkSpiritPush(){
+  if(itemSkillCooldownLock > 0) return;
+
+  const pushDuration = 5 * 60;
+  let totalPushed = 0;
+  
+  for(let i = meteors.length-1; i >= 0; i--){
+    const m = meteors[i];
+    if(m.type === 'dark' || m.type === 'giant' || m.type === 'proj' || m._isRaksasa) continue;
+    
+    m.vy = -Math.random() * 20 - 10;
+    m.vx = Math.random() * 8 - 4;
+    m.speed = 0;
+    m.pushed = true;
+    totalPushed++;
+    totalMeteorsFallen++;
+    coinData += 2;
+    totalCoinsGainedFromMeteors += 2;
+  }
+  
+  showMsg(`Dark Spirit: Mendorong Meteor! +${totalPushed*2} Koin!`, pushDuration);
+  
+  attractReady = false; darkSpiritAttractCooldown = 40 * 60;
+  pushReady = false; darkSpiritPushCooldown = 40 * 60;
+}
+
+// ⚡️ NEW: Skill Diamond Skin
+function diamondShield(){
+  if(itemSkillCooldownLock > 0) return;
+  diamondShieldTimer = 5 * 60;
+  diamondShieldReady = false;
+  diamondShieldCooldown = 30 * 60;
+  showMsg('Pelindung Berlian Aktif (5s)', 90);
+}
+
+function diamondLaser(){
+  if(itemSkillCooldownLock > 0) return;
+  diamondLaserTimer = 10 * 60;
+  diamondLaserReady = false;
+  diamondLaserCooldown = 35 * 60;
+  showMsg('Laser Berlian Beruntun Aktif (10s)', 90);
+}
+
+function diamondLaserFire(){
+  if(!diamondLaserTimer) return;
+  
+  // Tembak laser kecil-kecil ke depan
+  meteors.push({
+    x: player.x, y: player.y - 30, size: 4, speed: 10, vy: -10, type: 'proj', ttl: 60
+  });
+  
+  // Deteksi tabrakan dengan meteor
+  for(let i = meteors.length-1; i>=0; i--){
+    const m = meteors[i];
+    if(m.type === 'proj') continue;
+    if(m.type === 'dark' || m.type === 'giant' || m._isRaksasa) continue; // Tidak bisa hancur
+    
+    // Periksa tabrakan dengan proyektil terakhir
+    const p = meteors[meteors.length-1];
+    const dx = m.x - p.x, dy = m.y - p.y;
+    if(Math.sqrt(dx*dx+dy*dy) < m.size + p.size){
+      meteors.splice(i,1);
+      meteors.splice(meteors.length-1, 1); // Hancurkan proyektil
+      totalMeteorsFallen++;
+    }
+  }
+  
+  // Damage Boss
+  if(bossActive) bossHP -= 0.1; 
+}
+
+// ⚡️ NEW: Skill Rainbow Skin
+function rainbowLaser(){
+  if(itemSkillCooldownLock > 0) return;
+  rainbowLaserTimer = 3 * 60;
+  rainbowLaserReady = false;
+  rainbowLaserCooldown = 25 * 60;
+  showMsg('Laser Warna-warni Aktif (3s)', 90);
+}
+
+function rainbowShine(){
+  if(itemSkillCooldownLock > 0) return;
+  rainbowShineActive = true;
+  rainbowShineReady = false;
+  rainbowShineCooldown = 30 * 60;
+  showMsg('Sinar Pelindung Aktif (5s)', 90);
+  
+  // Tandai semua meteor yang ada di map agar tidak bisa melukai
+  for(let m of meteors){
+    if(m.type !== 'dark' && m.type !== 'giant' && m.type !== 'proj' && !m._isRaksasa){
+      m._immune = true;
+    }
+  }
+  
+  setTimeout(()=> {
+    rainbowShineActive = false;
+    showMsg('Sinar Pelindung habis!', 90);
+  }, 5 * 1000);
+}
+
+// ⚡️ INSTING METEOR SKILL (Ultra Instinct Mode)
+function activateInstingMeteor() {
+  if (instingCooldown > 0 || instingActive) return; // lagi cooldown
+  instingActive = true;
+  instingTimer = 30 * 60; // 30 detik
+  instingCooldown = 60 * 60; // cooldown 1 menit
+  showMsg('⚡ Insting Meteor Aktif! Kamu menghindar otomatis!', 120);
+}
+
+function updateInstingMeteor() {
+  if (player.skin !== 'insting_meteor') return;
+
+  // Auto aktifkan kalau cooldown habis
+  if (!instingActive && instingCooldown <= 0) {
+    activateInstingMeteor();
+  }
+
+  // Mode aktif
+  if (instingActive) {
+    instingTimer--;
+
+    // Efek aura putih (Ultra Instinct)
+    ctx.save();
+    ctx.strokeStyle = 'white';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(player.x, player.y, player.size * 1.8, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+
+    // Deteksi meteor di sekitar
+    const threats = meteors.filter(m => Math.abs(m.x - player.x) < 150 && Math.abs(m.y - player.y) < 150);
+    if (threats.length > 0) {
+      // Hitung posisi rata-rata meteor
+      let avgX = 0, avgY = 0;
+      threats.forEach(m => { avgX += m.x; avgY += m.y; });
+      avgX /= threats.length; avgY /= threats.length;
+
+      // Tentukan arah menjauh dari pusat meteor
+      const dx = player.x - avgX;
+      const dy = player.y - avgY;
+
+      // Gerak cepat menjauh
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      if (distance > 0) {
+        const speed = 120 + Math.random() * 40;
+        player.x += (dx / distance) * speed;
+        player.y += (dy / distance) * speed;
+      }
+
+      // Efek kilat putih (blink dodge)
+      ctx.save();
+      ctx.globalAlpha = 0.3;
+      ctx.fillStyle = 'white';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.restore();
+    }
+
+    // Batas layar
+    if (player.x < player.size) player.x = player.size;
+    if (player.x > canvas.width - player.size) player.x = canvas.width - player.size;
+    if (player.y < player.size) player.y = player.size;
+    if (player.y > canvas.height - player.size * 2) player.y = canvas.height - player.size * 2;
+
+    if (instingTimer <= 0) {
+      instingActive = false;
+      showMsg('⚡ Insting Meteor Berakhir! Cooldown 1 Menit!', 120);
+    }
+  }
+
+  // Kurangi cooldown
+  if (instingCooldown > 0) {
+    instingCooldown--;
+    if (instingCooldown === 0) {
+      showMsg('Insting Meteor siap digunakan lagi!', 120);
+    }
+  }
+
+  // HUD indikator
+  const indi = document.getElementById('instingIndicator');
+  if (player.skin === 'insting_meteor') {
+    indi.style.display = 'block';
+    if (instingActive) indi.innerText = `Insting: AKTIF (${Math.ceil(instingTimer/60)}s)`;
+    else if (instingCooldown > 0) indi.innerText = `Insting: Cooldown (${Math.ceil(instingCooldown/60)}s)`;
+    else indi.innerText = 'Insting: READY';
+  } else {
+    indi.style.display = 'none';
+  }
+}
+
+function rainbowLaserFire(){
+  if(!rainbowLaserTimer) return;
+  
+  const coneWidth = 120;
+  const coneHeight = 450;
+  for(let i = meteors.length-1; i>=0; i--){
+    const m = meteors[i];
+    if(m.y < player.y && Math.abs(m.x - player.x) < coneWidth && (player.y - m.y) < coneHeight){
+      if(m.type === 'dark' || m.type === 'giant' || m._isRaksasa) continue;
+      
+      // Visual Laser Warna-warni
+      const g=ctx.createLinearGradient(player.x-60,player.y-450,player.x+60,player.y-50);
+      g.addColorStop(0,'red');g.addColorStop(0.2,'orange');g.addColorStop(0.4,'yellow');
+      g.addColorStop(0.6,'green');g.addColorStop(0.8,'blue');g.addColorStop(1,'violet');
+      ctx.fillStyle = g;
+      ctx.globalAlpha = 0.5;
+      ctx.fillRect(player.x - 60, 0, 120, player.y);
+      ctx.globalAlpha = 1;
+      
+      meteors.splice(i,1);
+      totalMeteorsFallen++;
+    }
+  }
+  if(bossActive) bossHP -= 0.5;
+}
+
+
+function handleProjectiles(){
+  for(let i = meteors.length-1; i >= 0; i--){
+    const m = meteors[i];
+    if(m.type === 'proj'){
+      m.x += (m.vx||0);
+      m.y += (m.vy||-6);
+      m.ttl--; if(m.ttl <= 0){ meteors.splice(i,1); continue; }
+      for(let j = meteors.length-1; j>=0; j--){
+        if(i===j) continue;
+        const t = meteors[j];
+        if(!t || t.type === 'proj') continue;
+        if(t.type === 'dark' || t.type === 'giant' || t._isRaksasa) continue;
+        const dx = t.x - m.x, dy = t.y - m.y;
+        if(Math.sqrt(dx*dx+dy*dy) < t.size + (m.size||4)){
+          meteors.splice(j,1);
+          m.ttl = 0;
+          totalMeteorsFallen++;
+          break;
+        }
+      }
+    }
+  }
+}
+
+/* =========================
+   Game State: start, end, reset
+   ========================= */
+
+let animId;
+function animate(){
+  if(gameOver) return;
+  setBackground();
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  // ⚡️ NEW: LOGIKA BOSS METEOR
+  if (bossActive) {
+    
+    if(itemSkillCooldownLock === 0){
+      laserCooldown = 0; meteorSkillCooldown = 0; goldenCooldown = 0;
+      darkSpiritAttractCooldown = 0; darkSpiritPushCooldown = 0;
+      diamondShieldCooldown = 0; diamondLaserCooldown = 0; // ⚡️ NEW
+      rainbowLaserCooldown = 0; rainbowShineCooldown = 0; // ⚡️ NEW
+      
+      laserReady = true; meteorReady = true; goldenReady = true;
+      attractReady = true; pushReady = true;
+      diamondShieldReady = true; diamondLaserReady = true; // ⚡️ NEW
+      rainbowLaserReady = true; rainbowShineReady = true; // ⚡️ NEW
+    }
+    
+    if(itemSkillCooldownLock > 0) { itemSkillCooldownLock--; }
+    
+    if(bossAttackTimer > 7200){
+      endBossFight(false);
+      showMsg('Boss meledak! Dark Meteor muncul!', 180);
+      const d = { x: canvas.width/2, y: -120, size: 60, speed: 0.5, type:'dark', absorbed:0 };
+      meteors.push(d);
+    }
+    
+    if(bossAttackTimer % 300 === 0){
+      const size = Math.random()*28 + 18;
+      const speed = Math.random()*2 + 2;
+      const angle = Math.atan2(player.y - 100, player.x - canvas.width/2);
+      meteors.push({ x: canvas.width/2, y: 100, size: size, speed: speed, vx: Math.cos(angle)*speed, vy: Math.sin(angle)*speed, type:'normal' });
+    }
+    
+    if(bossUltiTimer % 1800 === 0){
+      const types = ['ice', 'normal', 'fire'];
+      for(let i=0; i<5; i++){
+        const type = types[Math.floor(Math.random()*types.length)];
+        meteors.push({ x: Math.random()*canvas.width, y: -150 - (i*100), size: Math.random()*60 + 40, speed: 1.5, type: type, _isRaksasa: true });
+      }
+      showMsg('BOSS ULTI: Meteor Raksasa!', 120);
+    }
+    
+    if(bossLightningTimer % 480 === 0){
+      const lx = Math.random() * canvas.width;
+      const ly = Math.random() * canvas.height;
+      
+      ctx.save();
+      ctx.strokeStyle = 'yellow'; ctx.lineWidth = 5;
+      ctx.beginPath(); ctx.moveTo(lx, 0); ctx.lineTo(lx, canvas.height); ctx.stroke();
+      ctx.restore();
+      
+      if(Math.abs(lx - player.x) < 50){
+        itemSkillCooldownLock = 10 * 60;
+        showMsg('TERKENA PETIR! Skill nonaktif 10 detik!', 120);
+      }
+    }
+    
+    bossAttackTimer++;
+    bossUltiTimer++;
+    bossLightningTimer++;
+    
+    if(bossHP <= 0){
+      endBossFight(true);
+    }
+  }
+  // ⚡️ END: LOGIKA BOSS METEOR
+  
+  if(!bossActive){
+    meteorTimer++;
+    if(!giantActive && meteorTimer % spawnInterval === 0){
+      createMeteor();
+    }
+  }
+
+  if(giantActive){
+    giantCooldownTimer++;
+    if(giantCooldownTimer > 1200){ giantActive = false; giantCooldownTimer = 0; meteorTimer = 0; }
+  }
+
+  moveMeteors();
+  
+  // ⚡️ NEW: Diamond Laser Firing
+  if(player.skin === 'diamond' && diamondLaserTimer > 0){
+    diamondLaserTimer--;
+    diamondLaserFire();
+  }
+  
+  // ⚡️ NEW: Rainbow Laser Firing
+  if(player.skin === 'rainbow' && rainbowLaserTimer > 0){
+    rainbowLaserTimer--;
+    rainbowLaserFire();
+  }
+  
+  handleProjectiles();
+  updateInstingMeteor();
+
+  if(!bossActive){
+    // ... (Cooldown Laser Violet/Meteor/Golden/Dark Spirit sama seperti sebelumnya) ...
+    if(!laserReady){ laserCooldown--; if(laserCooldown <= 0){ laserReady = true; laserCooldown = 0; showMsg('Violet Laser ready', 90); } }
+    if(!meteorReady){ meteorSkillCooldown--; if(meteorSkillCooldown <= 0){ meteorReady = true; meteorSkillCooldown = 0; showMsg('Meteor Skill ready', 90); } }
+    if(!goldenReady){ goldenCooldown--; if(goldenCooldown <= 0){ goldenReady = true; goldenCooldown = 0; showMsg('Golden Laser ready', 90); } }
+    if(!attractReady){ darkSpiritAttractCooldown--; if(darkSpiritAttractCooldown <= 0){ attractReady = true; pushReady = true; darkSpiritPushCooldown = 0; showMsg('Dark Spirit: Attract ready', 90); } }
+    if(!pushReady){ darkSpiritPushCooldown--; if(darkSpiritPushCooldown <= 0){ pushReady = true; attractReady = true; darkSpiritAttractCooldown = 0; showMsg('Dark Spirit: Push ready', 90); } }
+    
+    // ⚡️ NEW: Cooldown Diamond
+    if(!diamondShieldReady){ diamondShieldCooldown--; if(diamondShieldCooldown <= 0){ diamondShieldReady = true; diamondShieldCooldown = 0; showMsg('Diamond Shield ready', 90); } }
+    if(!diamondLaserReady){ diamondLaserCooldown--; if(diamondLaserCooldown <= 0){ diamondLaserReady = true; diamondLaserCooldown = 0; showMsg('Diamond Laser ready', 90); } }
+    
+    // ⚡️ NEW: Cooldown Rainbow
+    if(!rainbowLaserReady){ rainbowLaserCooldown--; if(rainbowLaserCooldown <= 0){ rainbowLaserReady = true; rainbowLaserCooldown = 0; showMsg('Rainbow Laser ready', 90); } }
+    if(!rainbowShineReady){ rainbowShineCooldown--; if(rainbowShineCooldown <= 0){ rainbowShineReady = true; rainbowShineCooldown = 0; showMsg('Rainbow Shine ready', 90); } }
+  }
+  
+  // ⚡️ NEW: Timer Diamond Shield
+  if(player.skin === 'diamond' && diamondShieldTimer > 0){
+    diamondShieldTimer--;
+    if(diamondShieldTimer === 0) showMsg('Pelindung Berlian habis!', 90);
+  }
+
+  drawBossMeteor();
+  drawPlayer();
+  for(let m of meteors) drawMeteor(m);
+
+  if(goldenLaserEffectTimer > 0){ 
+    goldenLaserEffectTimer--; 
+    ctx.save(); 
+    if(player.skin === 'golden'){
+      ctx.fillStyle = `rgba(255,215,0,${0.1 + goldenLaserEffectTimer/20})`; 
+      ctx.fillRect(0, 0, canvas.width, canvas.height); 
+      ctx.fillStyle = 'rgba(255,255,255,0.8)'; 
+      ctx.fillRect(player.x - 5, 0, 10, player.y); 
+      ctx.fillStyle = 'rgba(255,215,0,0.6)'; 
+      ctx.fillRect(player.x - 60, 0, 120, player.y); 
+    } else if(player.skin === 'dark_spirit'){
+      ctx.fillStyle = `rgba(0,0,0,${0.2 + goldenLaserEffectTimer/20})`; 
+      ctx.fillRect(0, 0, canvas.width, canvas.height); 
+      ctx.fillStyle = 'rgba(20,20,20,0.9)'; 
+      ctx.fillRect(player.x - 15, 0, 30, player.y); 
+      ctx.fillStyle = 'rgba(50,50,50,0.7)'; 
+      ctx.fillRect(player.x - 80, 0, 160, player.y); 
+    }
+    ctx.restore(); 
+  }
+
+  if(detectCollision()){
+    endGame(); return;
+  }
+
+  score += 1 * currentScoreMultiplier;
+  document.getElementById('scoreText').innerText = 'Skor: ' + score;
+  document.getElementById('skinText').innerText = 'Skin: ' + player.skin;
+  document.getElementById('coinHud').innerText = '💰 Koin: ' + coinData + (totalCoinsGainedFromMeteors > 0 ? ` (+${totalCoinsGainedFromMeteors})` : '');
+  totalCoinsGainedFromMeteors = 0;
+  document.getElementById('isTembus').innerText = isTembusPermActive ? 'ON' : 'OFF';
+
+  if(freezeTimer > 0){ freezeTimer--; if(freezeTimer === 0) showMsg('Kamu tidak lagi beku', 90); }
+
+  if(activeItem && itemDuration > 0){
+    itemDuration--;
+    document.getElementById('itemTimer').style.display = 'block';
+    let effectName = activeItem.name.split(' ')[0];
+    document.getElementById('itemTimer').innerText = `Efek: ${effectName} (${Math.ceil(itemDuration/60)}s)`;
+  } else if (activeItem && itemDuration <= 0) {
+    showMsg(`Efek ${activeItem.name} habis!`, 90);
+    activeItem = null;
+    document.getElementById('itemTimer').style.display = 'none';
+    if(activeItem && activeItem.itemEffect === 'insting_meteor'){ // Kembalikan skin ke yang aktif setelah Insting Meteor habis
+      player.skin = invData.activeSkin; 
+      updateLaserButtonVisibility(); 
+    }
+  }
+  
+  if(bossActive){
+    ctx.save();
+    ctx.fillStyle = 'red';
+    ctx.fillRect(canvas.width/4, 20, (canvas.width/2) * (bossHP/bossMaxHP), 15);
+    ctx.strokeStyle = 'white';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(canvas.width/4, 20, canvas.width/2, 15);
+    ctx.textAlign = 'center';
+    ctx.fillStyle = 'white';
+    ctx.fillText(`BOSS HP: ${Math.max(0, bossHP)}`, canvas.width/2, 33);
+    ctx.restore();
+  }
+
+  animId = requestAnimationFrame(animate);
+}
+
+function endGame(){
+  gameOver = true;
+  cancelAnimationFrame(animId);
+  let tambah = Math.round((score/100)*5 * currentScoreMultiplier);
+  if(tambah % 2 !== 0) tambah++;
+  coinData += tambah;
+  if(coinData < 0) coinData = 0;
+  
+  totalMeteorsFallen = 0;
+  
+  saveData();
+  document.getElementById('finalScore').innerText = `Skor Akhir: ${score} | Bonus Koin: +${tambah} 💰`;
+  document.getElementById('gameOver').style.display = 'flex';
+  document.getElementById('hud').style.display = 'none';
+  document.getElementById('coinHud').style.display = 'none';
+  document.getElementById('cheatStatus').style.display = 'none';
+  document.getElementById('itemTimer').style.display = 'none';
+  activeItem = null;
+  itemDuration = 0;
+  
+  // ⚡️ RESET SKILL TIMERS (Tambahan)
+  diamondShieldTimer = 0; diamondLaserTimer = 0;
+  rainbowLaserTimer = 0; rainbowShineActive = false;
+  
+  bossActive = false;
+}
+
+function resetGame(){
+  meteors = []; score = 0; gameOver = false;
+  player.x = canvas.width/2;
+  player.skin = invData.activeSkin;
+  
+  // ⚡️ UPDATE: Set lives & speed berdasarkan skin
+  player.speed = (player.skin === 'meteor_skin') ? 18 : 12;
+  if(player.skin === 'golden') player.lives = 3;
+  else if(player.skin === 'rainbow') player.lives = 3; // ⚡️ NEW: Buff Rainbow
+  else if(player.skin === 'diamond') player.lives = 4; // ⚡️ NEW: Buff Diamond
+  else player.lives = 1;
+  
+  updateLifeHud();
+  document.getElementById('gameOver').style.display = 'none';
+  document.getElementById('hud').style.display = 'block';
+  document.getElementById('coinHud').style.display = 'block';
+  if(isCheatActive) document.getElementById('cheatStatus').style.display = 'block';
+  meteorTimer = 0; spawnInterval = 60; freezeTimer = 0;
+  
+  // Reset cooldowns
+  laserCooldown = 0; meteorSkillCooldown = 0; goldenCooldown = 0;
+  darkSpiritAttractCooldown = 0; darkSpiritPushCooldown = 0;
+  diamondShieldCooldown = 0; diamondLaserCooldown = 0; // ⚡️ NEW
+  rainbowLaserCooldown = 0; rainbowShineCooldown = 0; // ⚡️ NEW
+  laserReady = true; meteorReady = true; goldenReady = true;
+  attractReady = true; pushReady = true;
+  diamondShieldReady = true; diamondLaserReady = true; // ⚡️ NEW
+  rainbowLaserReady = true; rainbowShineReady = true; // ⚡️ NEW
+  
+  // Reset timers/states
+  giantActive = false;
+  goldenLaserEffectTimer = 0;
+  diamondShieldTimer = 0; diamondLaserTimer = 0; // ⚡️ NEW
+  rainbowLaserTimer = 0; rainbowShineActive = false; // ⚡️ NEW
+  
+  bossActive = false; bossHP = 0; bossAttackTimer = 0; bossUltiTimer = 0; bossLightningTimer = 0;
+  itemSkillCooldownLock = 0;
+  totalCoinsGainedFromMeteors = 0;
+  lastGoldenHitFrame = 0;
+  
+  if (!activeItem) {
+    document.getElementById('itemTimer').style.display = 'none';
+  }
+  
+  // Periksa apakah item Insting Meteor sedang aktif (jika iya, pakai skin-nya)
+  if(activeItem && activeItem.itemEffect === 'insting_meteor'){
+    player.skin = 'insting_meteor';
+  } else {
+    updateLaserButtonVisibility();
+  }
+  // ⚡️ Reset Insting Meteor saat mulai ulang
+instingActive = false;
+instingTimer = 0;
+instingCooldown = 0;
+  animate();
+}
+
+/* =========================
+   Shop / Inventory / UI
+   ========================= */
+
+function openShop(){
+  document.getElementById('menu').style.display = 'none';
+  document.getElementById('hud').style.display = 'none';
+  const s = document.getElementById('shop'); s.style.display = 'flex';
+  document.getElementById('coinHud').innerText = '💰 Koin: ' + coinData;
+  
+  // ⚡️ NEW: Tampilkan Skin Shop Carousel
+  const skinList = document.getElementById('skinShopCarousel'); skinList.innerHTML = '';
+  const skins = shopItems.filter(it => it.type === 'skin');
+  
+  skins.forEach(it => {
+    const div = document.createElement('div');
+    div.className = 'shopItemCard';
+    const isOwned = invData.skins.includes(it.skin);
+    const limitedHtml = it.limited ? `<span class="limitedTag">LIMITED</span>` : '';
+    
+    // Canvas Preview
+    const canvasEl = document.createElement('canvas');
+    canvasEl.width = 100; canvasEl.height = 100;
+    setTimeout(()=>drawSkinPreview(canvasEl, it.skin), 0); // Gambar setelah element masuk DOM
+    
+    div.appendChild(canvasEl);
+    div.innerHTML += `<h4 style="margin-bottom: 4px;">${it.name} ${limitedHtml}</h4>`;
+    div.innerHTML += `<p style="font-size: 14px; min-height: 30px;">${it.desc||''}</p>`;
+    
+    if(isOwned){
+      div.innerHTML += `<p style="font-weight: bold; color: lime;">Dimiliki</p>`;
+    } else {
+      div.innerHTML += `<p style="font-weight: bold; color: gold; font-size: 16px;">${it.price} 💰</p>`;
+      const btn = document.createElement('button');
+      btn.textContent = 'Beli';
+      btn.style.background = '#0ff'; btn.style.color = '#000';
+      btn.onclick = ()=> buyItem(it);
+      div.appendChild(btn);
+    }
+    skinList.appendChild(div);
+  });
+  
+  // ⚡️ NEW: Tampilkan Item Shop Carousel
+  const itemList = document.getElementById('itemShopCarousel'); itemList.innerHTML = '';
+  const items = shopItems.filter(it => it.type === 'item');
+  
+  items.forEach(it => {
+    const div = document.createElement('div');
+    div.className = 'shopItemCard';
+    const limitedHtml = it.limited ? `<span class="limitedTag">LIMITED</span>` : '';
+    
+    div.innerHTML += `<h4 style="margin-bottom: 4px;">${it.name} ${limitedHtml}</h4>`;
+    div.innerHTML += `<p style="font-size: 14px; min-height: 30px;">${it.desc||''}</p>`;
+    div.innerHTML += `<p style="font-weight: bold; color: gold; font-size: 16px;">${it.price} 💰</p>`;
+    
+    const btn = document.createElement('button');
+    btn.textContent = 'Beli';
+    btn.style.background = '#0ff'; btn.style.color = '#000';
+    btn.onclick = ()=> buyItem(it);
+    div.appendChild(btn);
+    
+    itemList.appendChild(div);
+  });
+}
+
+function buyItem(it){
+  if(coinData < it.price){ alert('Koin tidak cukup 💸'); return; }
+  if(it.type === 'skin' && invData.skins.includes(it.skin)){ alert('Skin sudah dimiliki'); return; }
+  
+  coinData -= it.price;
+  
+  if(it.type === 'skin'){ 
+    invData.skins.push(it.skin); 
+    invData.activeSkin = it.skin; 
+    
+    // ⚡️ UPDATE: Set lives berdasarkan skin
+    if(it.skin === 'golden') player.lives = 3;
+    else if(it.skin === 'rainbow') player.lives = 3; // ⚡️ NEW: Buff Rainbow
+    else if(it.skin === 'diamond') player.lives = 4; // ⚡️ NEW: Buff Diamond
+    else player.lives = 1;
+    
+    player.skin = it.skin; 
+    player.speed = (it.skin === 'meteor_skin')?18:12; 
+    updateLifeHud();
+  }
+  else { invData.items.push(it.name); }
+  
+  saveData();
+  alert(it.name + ' berhasil dibeli!');
+  openShop();
+}
+
+// PERBAIKAN: Variabel global untuk carousel
+let currentPreviewIndex = 0;
+
+// PERBAIKAN: Fungsi untuk update tampilan carousel
+function updateSkinPreview() {
+  const skinName = invData.skins[currentPreviewIndex];
+  const skinItem = shopItems.find(i => i.skin === skinName);
+  
+  document.getElementById('previewSkinName').innerText = (skinItem ? skinItem.name : skinName).split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '); 
+  drawSkinPreview(document.getElementById('skinPreviewCanvas'), skinName);
+  
+  const selectBtn = document.getElementById('selectSkinBtn');
+  const statusText = document.getElementById('skinStatusText');
+  
+  const desc = skinItem ? skinItem.desc : '';
+  let buffDesc = '';
+  if(skinName === 'golden') buffDesc = '3 Nyawa. Laser besar (CD 25s).';
+  else if(skinName === 'diamond') buffDesc = '4 Nyawa. Diamond Shield (CD 30s) & Laser Beruntun (CD 35s).'; // ⚡️ NEW
+  else if(skinName === 'rainbow') buffDesc = '3 Nyawa. Laser Warna-warni (CD 25s) & Sinar Pelindung (CD 30s).'; // ⚡️ NEW
+  
+  statusText.style.color = 'white';
+  statusText.innerText = `${desc} ${buffDesc ? `[BUFF: ${buffDesc}]` : ''}`;
+  
+  if (skinName === invData.activeSkin) {
+    selectBtn.textContent = 'Dipakai ✅';
+    selectBtn.disabled = true;
+    statusText.style.color = 'lime';
+  } else {
+    selectBtn.textContent = 'Pilih Skin Ini';
+    selectBtn.disabled = false;
+  }
+}
+
+// PERBAIKAN: Fungsi untuk mengisi daftar item
+function populateItemInventory() {
+  const list = document.getElementById('inventoryList');
+  list.innerHTML = ''; 
+  
+  if(invData.items.length){
+    const itemCounts = invData.items.reduce((acc, it)=>{ acc[it] = (acc[it]||0)+1; return acc; }, {});
+    for(const name in itemCounts){
+      const item = shopItems.find(i => i.name === name) || { name: 'Insting Meteor', itemEffect: 'insting_meteor' }; // Handle Insting Meteor
+      
+      let duration = 0;
+      if (item.itemEffect === 'ghost') duration = 3;
+      else if (item.itemEffect === 'slow') duration = 5;
+      else if (item.itemEffect === 'insting_meteor') duration = 5;
+      
+      const div = document.createElement('div');
+      div.innerHTML = `<p>${name} (x${itemCounts[name]})</p>`;
+      
+      if(item.itemEffect === 'shield'){
+        div.innerHTML += '<p style="font-size:14px">(Perisai aktif otomatis saat tabrakan)</p>';
+      } else {
+        const btn = document.createElement('button');
+        btn.textContent = `Gunakan (${duration} detik)`;
+        btn.style.background = 'purple';
+        btn.style.color = 'white';
+        btn.onclick = ()=> {
+          if(activeItem){ showMsg('Sudah ada item aktif!', 90); return; }
+          
+          const idx = invData.items.indexOf(name); 
+          if(idx > -1) invData.items.splice(idx,1);
+          
+          activeItem = item;
+          itemDuration = duration * 60;
+          
+          if(name === 'Insting Meteor'){
+             player.skin = 'insting_meteor';
+             updateLaserButtonVisibility();
+          }
+          
+          saveData(); 
+          alert(name + ' digunakan. Efek akan aktif di game berikutnya!'); 
+          backToMenu();
+        };
+        div.appendChild(btn);
+      }
+      list.appendChild(div);
+    }
+  } else {
+    list.innerHTML = '<p>Tidak ada item di inventaris.</p>';
+  }
+}
+
+// PERBAIKAN: Fungsi openInventory
+function openInventory(){
+  document.getElementById('menu').style.display = 'none';
+  document.getElementById('hud').style.display = 'none';
+  document.getElementById('inventory').style.display = 'flex';
+  
+  currentPreviewIndex = invData.skins.indexOf(invData.activeSkin);
+  if (currentPreviewIndex === -1) { currentPreviewIndex = 0; }
+  updateSkinPreview();
+  
+  populateItemInventory();
+}
+
+function backToMenu(){
+  document.getElementById('shop').style.display = 'none';
+  document.getElementById('inventory').style.display = 'none';
+  document.getElementById('themeMenu').style.display = 'none';
+  document.getElementById('debugPanel').style.display = 'none'; // ⚡️ NEW
+  document.getElementById('skinCheatPanel').style.display = 'none'; // ⚡️ NEW
+  
+  document.getElementById('menu').style.display = 'flex';
+  document.getElementById('hud').style.display = 'block';
+  document.getElementById('coinHud').style.display = 'block';
+  document.getElementById('cheatStatus').style.display = 'none';
+  document.getElementById('coinHud').innerText = '💰 Koin: ' + coinData;
+  document.getElementById('skinText').innerText = 'Skin: ' + invData.activeSkin;
+  document.getElementById('itemTimer').style.display = 'none';
+  saveData();
+}
+
+/* =========================
+   Secret Codes & Buttons
+   ========================= */
+// ⚡️ NEW: Fungsi untuk memanggil meteor dari debug panel
+function spawnMeteorByType(type){
+  if(type === 'boss'){
+    if(bossActive){
+      showMsg('Boss sudah aktif!', 90); return;
+    }
+    createBossMeteor();
+    document.getElementById('debugPanel').style.display = 'none';
+    document.getElementById('menu').style.display = 'none';
+    resetGame();
+  } else if(type === 'giant'){
+    spawnGiantMeteor();
+    showMsg('Giant Meteor dipanggil', 90);
+  } else if(type === 'dark'){
+    meteors.push({ x: Math.random()*canvas.width, y: -120, size: 60, speed: 0.5, type:'dark', absorbed:0 });
+    showMsg('Dark Meteor dipanggil', 90);
+  } else if(type === 'ice'){
+    meteors.push({ x: Math.random()*canvas.width, y: -30, size: Math.random()*28 + 18, speed: Math.random()*3 + 2, type: 'ice' });
+    showMsg('Ice Meteor dipanggil', 90);
+  }
+}
+// ⚡️ NEW: Fungsi untuk mengisi daftar skin cheat
+function populateAllSkins(){
+  const list = document.getElementById('allSkinsList');
+  list.innerHTML = '';
+  
+  const allSkins = [...new Set(shopItems.filter(i => i.type === 'skin').map(i => i.skin)), 'insting_meteor', 'meteor_skin'];
+  
+  allSkins.forEach(skin => {
+    const div = document.createElement('div');
+    div.style.display = 'flex'; div.style.justifyContent = 'space-between'; div.style.alignItems = 'center';
+    div.style.borderBottom = '1px solid #333'; div.style.padding = '8px 0';
+    
+    const skinName = skin.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+    div.innerHTML = `<span>${skinName}</span>`;
+    
+    const btn = document.createElement('button');
+    btn.textContent = invData.skins.includes(skin) ? 'Dimiliki' : 'Tambah';
+    btn.disabled = invData.skins.includes(skin);
+    btn.style.minWidth = '80px';
+    btn.onclick = () => {
+      if(!invData.skins.includes(skin)){
+        invData.skins.push(skin);
+        saveData();
+        btn.textContent = 'Dimiliki';
+        btn.disabled = true;
+        showMsg(`${skinName} ditambahkan!`, 90);
+      }
+    }
+    div.appendChild(btn);
+    list.appendChild(div);
+  });
+}
+
+document.getElementById('kodeBtn').onclick = () => {
+  const kode = document.getElementById('kodeInput').value.trim();
+  if(kode === '363636'){
+    isCheatActive = true; isTembusPermActive = true;
+    currentScoreMultiplier = 3;
+    alert('Kode Rahasia Aktif! Mode Tembus, Skor x3 🤫 (Hilang jika refresh)');
+    document.getElementById('kodeInput').value = '';
+    if(isCheatActive) document.getElementById('cheatStatus').style.display = 'block';
+    return;
+  }
+  if(kode === '12345654321'){
+    const val = prompt('Masukkan jumlah koin (angka):');
+    const n = parseInt(val);
+    if(!isNaN(n)) {
+      coinData = n; saveData(); document.getElementById('kodeInput').value = '';
+      document.getElementById('coinHud').innerText = '💰 Koin: ' + coinData;
+    } else { document.getElementById('kodeInput').value = ''; }
+    return;
+  }
+  // ⚡️ NEW: KODE 3366 (DEBUG PANEL)
+  if(kode === '3366'){
+    document.getElementById('kodeInput').value = '';
+    document.getElementById('menu').style.display = 'none';
+    document.getElementById('debugPanel').style.display = 'flex';
+    return;
+  }
+  // ⚡️ NEW: KODE 7887 (ALL SKINS)
+  if(kode === '7887'){
+    document.getElementById('kodeInput').value = '';
+    populateAllSkins();
+    document.getElementById('menu').style.display = 'none';
+    document.getElementById('skinCheatPanel').style.display = 'flex';
+    return;
+  }
+  alert('Kode salah atau belum diaktifkan.');
+}
+
+document.getElementById('toggleTembusBtn').onclick = () => {
+  isTembusPermActive = !isTembusPermActive;
+  document.getElementById('isTembus').innerText = isTembusPermActive ? 'ON' : 'OFF';
+  document.getElementById('toggleTembusBtn').textContent = isTembusPermActive ? 'Nonaktifkan' : 'Aktifkan';
+  if(isTembusPermActive) showMsg('Mode Tembus Permanen Diaktifkan. (Hilang jika refresh)', 90);
+  else showMsg('Mode Tembus Dinonaktifkan.', 90);
+}
+
+/* =========================
+   Input: touch/drag movement
+   ========================= */
+
+let lastTouchX = null;
+canvas.addEventListener('touchstart', e => { e.preventDefault(); const t = e.touches[0]; lastTouchX = t.clientX; if(freezeTimer <= 0) player.x = t.clientX; });
+canvas.addEventListener('touchmove', e => {
+  e.preventDefault();
+  if(freezeTimer > 0) return;
+  const t = e.touches[0];
+  player.x = t.clientX;
+});
+window.addEventListener('mousemove', e => { if(e.buttons === 1){ if(freezeTimer > 0) return; player.x = e.clientX; } });
+
+/* =========================
+   Laser button logic
+   ========================= */
+
+const laserBtn = document.getElementById('laserBtn');
+const darkSpiritPushBtn = document.getElementById('darkSpiritPushBtn');
+
+laserBtn.onclick = ()=>{
+  if(itemSkillCooldownLock > 0){
+    showMsg(`Skill terkunci (${Math.ceil(itemSkillCooldownLock/60)}s)`, 90);
+    return;
+  }
+  
+  if(player.skin === 'meteor_skin'){
+    if(meteorReady) meteorSkinTripleFire();
+    else showMsg(`Cooldown: ${Math.ceil(meteorSkillCooldown/60)}s`, 90);
+    return;
+  }
+  if(player.skin === 'violet'){
+    if(laserReady) fireLaserViolet();
+    else showMsg(`Cooldown: ${Math.ceil(laserCooldown/60)}s`, 90);
+    return;
+  }
+  if(player.skin === 'golden'){
+    if(goldenReady) fireGoldenLaser();
+    else showMsg(`Cooldown: ${Math.ceil(goldenCooldown/60)}s`, 90);
+    return;
+  }
+  if(player.skin === 'dark_spirit'){
+    if(attractReady) darkSpiritAttract();
+    else showMsg(`Cooldown: ${Math.ceil(darkSpiritAttractCooldown/60)}s`, 90);
+    return;
+  }
+  // ⚡️ NEW: Skill Diamond (Shield)
+  if(player.skin === 'diamond'){
+    if(diamondShieldReady){ diamondShield(); }
+    else if(diamondLaserReady){ diamondLaser(); }
+    else { showMsg(`CD Shield: ${Math.ceil(diamondShieldCooldown/60)}s | CD Laser: ${Math.ceil(diamondLaserCooldown/60)}s`, 90); }
+    return;
+  }
+  // ⚡️ NEW: Skill Rainbow (Laser)
+  if(player.skin === 'rainbow'){
+    if(rainbowLaserReady){ rainbowLaser(); }
+    else if(rainbowShineReady){ rainbowShine(); }
+    else { showMsg(`CD Laser: ${Math.ceil(rainbowLaserCooldown/60)}s | CD Shine: ${Math.ceil(rainbowShineCooldown/60)}s`, 90); }
+    return;
+  }
+  
+  showMsg('Butuh skin dengan skill untuk pakai tombol ini', 90);
+}
+
+// ⚡️ NEW: Dark Spirit Push Button Logic
+if(darkSpiritPushBtn){
+  darkSpiritPushBtn.onclick = ()=>{
+    if(itemSkillCooldownLock > 0){
+      showMsg(`Skill terkunci (${Math.ceil(itemSkillCooldownLock/60)}s)`, 90);
+      return;
+    }
+    if(player.skin === 'dark_spirit'){
+      if(pushReady) darkSpiritPush();
+      else showMsg(`Cooldown: ${Math.ceil(darkSpiritPushCooldown/60)}s`, 90);
+    }
+    // ⚡️ NEW: Diamond Skill 2 (Laser)
+    else if(player.skin === 'diamond'){
+      if(diamondLaserReady) diamondLaser();
+      else showMsg(`Cooldown: ${Math.ceil(diamondLaserCooldown/60)}s`, 90);
+    }
+    // ⚡️ NEW: Rainbow Skill 2 (Shine)
+    else if(player.skin === 'rainbow'){
+      if(rainbowShineReady) rainbowShine();
+      else showMsg(`Cooldown: ${Math.ceil(rainbowShineCooldown/60)}s`, 90);
+    }
+  }
+}
+
+
+function updateLaserButtonVisibility(){
+  const showButton = (player.skin === 'violet' || player.skin === 'meteor_skin' || player.skin === 'golden' || player.skin === 'dark_spirit' || player.skin === 'diamond' || player.skin === 'rainbow');
+  laserBtn.style.display = showButton ? 'block' : 'none';
+  
+  const showSecondButton = (player.skin === 'dark_spirit' || player.skin === 'diamond' || player.skin === 'rainbow');
+  if(darkSpiritPushBtn){
+    darkSpiritPushBtn.style.display = showSecondButton ? 'block' : 'none';
+  }
+  
+  // Posisi tombol disesuaikan jika ada 2 tombol
+  if(showSecondButton){
+    laserBtn.style.left = '30%';
+    laserBtn.style.transform = 'translateX(-50%)';
+  } else {
+    laserBtn.style.left = '50%';
+    laserBtn.style.transform = 'translateX(-50%)';
+  }
+  
+  updateLaserButtonText();
+}
+
+function updateLaserButtonText(){
+  let skill1Text = '', skill2Text = '';
+  let skill1Ready = false, skill1CD = 0;
+  let skill2Ready = false, skill2CD = 0;
+  
+  if(player.skin === 'violet'){
+    skill1Text = 'LASER 🔫'; skill1Ready = laserReady; skill1CD = laserCooldown;
+  } else if(player.skin === 'meteor_skin'){
+    skill1Text = 'TRIPLE FIRE'; skill1Ready = meteorReady; skill1CD = meteorSkillCooldown;
+  } else if(player.skin === 'golden'){
+    skill1Text = 'GOLD LASER'; skill1Ready = goldenReady; skill1CD = goldenCooldown;
+  } else if(player.skin === 'dark_spirit'){
+    skill1Text = 'TARIK 🌑'; skill1Ready = attractReady; skill1CD = darkSpiritAttractCooldown;
+    skill2Text = 'DORONG 💥'; skill2Ready = pushReady; skill2CD = darkSpiritPushCooldown;
+  } else if(player.skin === 'diamond'){ // ⚡️ NEW
+    skill1Text = 'SHIELD 💎'; skill1Ready = diamondShieldReady; skill1CD = diamondShieldCooldown;
+    skill2Text = 'LASER BERUNTUN'; skill2Ready = diamondLaserReady; skill2CD = diamondLaserCooldown;
+  } else if(player.skin === 'rainbow'){ // ⚡️ NEW
+    skill1Text = 'LASER 🌈'; skill1Ready = rainbowLaserReady; skill1CD = rainbowLaserCooldown;
+    skill2Text = 'SHINE ✨'; skill2Ready = rainbowShineReady; skill2CD = rainbowShineCooldown;
+  }
+  
+  // Update Button 1
+  if(skill1Text){
+    if(skill1Ready) laserBtn.textContent = `${skill1Text} (Ready)`;
+    else laserBtn.textContent = `${skill1Text} (CD: ${Math.ceil(skill1CD/60)}s)`;
+  } else { laserBtn.style.display = 'none'; }
+  
+  // Update Button 2
+  if(darkSpiritPushBtn){
+    if(skill2Text){
+      if(skill2Ready) darkSpiritPushBtn.textContent = `${skill2Text} (Ready)`;
+      else darkSpiritPushBtn.textContent = `${skill2Text} (CD: ${Math.ceil(skill2CD/60)}s)`;
+    } else { darkSpiritPushBtn.style.display = 'none'; }
+  }
+  
+  // Override jika Skill Lock (Petir Boss)
+  if(itemSkillCooldownLock > 0 && (player.skin === 'violet' || player.skin === 'meteor_skin' || player.skin === 'golden' || player.skin === 'dark_spirit' || player.skin === 'diamond' || player.skin === 'rainbow')){
+    const lockText = `LOCK (${Math.ceil(itemSkillCooldownLock/60)}s)`;
+    laserBtn.textContent = lockText;
+    if(darkSpiritPushBtn && darkSpiritPushBtn.style.display === 'block') darkSpiritPushBtn.textContent = lockText;
+  }
+}
+
+/* =========================
+   Utility: messages & life HUD
+   ========================= */
+
+function showMsg(text, frames=120){
+  const el = document.getElementById('msgSmall');
+  el.innerText = text; el.style.display = 'block';
+  setTimeout(()=>{ el.style.display = 'none'; }, (frames/60)*1000);
+}
+
+function updateLifeHud(){
+  const el = document.getElementById('lifeHud');
+  if(player.lives > 1){
+    el.style.display = 'block';
+    el.innerText = 'Nyawa: ' + player.lives;
+    // Posisikan HUD Score di atas Life HUD
+    document.getElementById('hud').style.top = '10px';
+    el.style.top = `${document.getElementById('hud').offsetHeight + 15}px`;
+  } else { 
+    el.style.display = 'none'; 
+    document.getElementById('hud').style.top = '10px';
+  }
+}
+
+
+/* =========================
+   Theme / Background
+   ========================= */
+
+function setTheme(t){
+  theme = t; backToMenu();
+}
+function setBackground(){
+  // ⚡️ UPDATE: CSS neon/diamond/space sudah ada di style tag (tidak perlu diubah)
+  if(theme === 'neon'){ document.body.style.background='radial-gradient(circle,#0ff,#00f,#000)'; }
+  else if(theme === 'diamond'){ document.body.style.background='linear-gradient(45deg,#0ff,#f0f,#00f)'; }
+  else { document.body.style.background='radial-gradient(circle at bottom,#020024,#090979,#000)'; }
+}
+
+/* =========================
+   Main controls & wiring
+   ========================= */
+
+document.getElementById('playBtn').onclick = ()=>{
+  document.getElementById('menu').style.display = 'none';
+  resetGame();
+};
+document.getElementById('restartBtn').onclick = resetGame;
+document.getElementById('shopBtn').onclick = openShop;
+document.getElementById('invBtn').onclick = openInventory;
+document.getElementById('themeBtn').onclick = ()=>{ document.getElementById('menu').style.display='none'; document.getElementById('themeMenu').style.display='flex'; }
+
+document.getElementById('backMenuFromGameOver').onclick = ()=> {
+  document.getElementById('gameOver').style.display = 'none';
+  document.getElementById('menu').style.display = 'flex';
+  document.getElementById('hud').style.display = 'block';
+  document.getElementById('coinHud').style.display = 'block';
+  document.getElementById('itemTimer').style.display = 'none';
+  
+  totalMeteorsFallen = 0;
+  
+  saveData();
+}
+
+// PERBAIKAN: Listener untuk tombol carousel baru
+document.getElementById('prevSkinBtn').onclick = () => {
+  currentPreviewIndex--;
+  if (currentPreviewIndex < 0) { currentPreviewIndex = invData.skins.length - 1; }
+  updateSkinPreview();
+};
+document.getElementById('nextSkinBtn').onclick = () => {
+  currentPreviewIndex++;
+  if (currentPreviewIndex >= invData.skins.length) { currentPreviewIndex = 0; }
+  updateSkinPreview();
+};
+document.getElementById('selectSkinBtn').onclick = () => {
+  const selectedSkin = invData.skins[currentPreviewIndex];
+  invData.activeSkin = selectedSkin;
+  
+  // ⚡️ UPDATE: Set lives berdasarkan skin
+  if(selectedSkin === 'golden') player.lives = 3;
+  else if(selectedSkin === 'rainbow') player.lives = 3; // ⚡️ NEW: Buff Rainbow
+  else if(selectedSkin === 'diamond') player.lives = 4; // ⚡️ NEW: Buff Diamond
+  else player.lives = 1;
+  
+  player.skin = selectedSkin; 
+  player.speed = (selectedSkin === 'meteor_skin') ? 18 : 12;
+  document.getElementById('skinText').innerText = 'Skin: ' + selectedSkin;
+  saveData();
+  updateLaserButtonVisibility();
+  updateLifeHud();
+  
+  document.getElementById('skinStatusText').innerText = `Skin ${selectedSkin} dipilih!`;
+  document.getElementById('skinStatusText').style.color = 'lime';
+  updateSkinPreview();
+};
+
+
+// ⚡️ PERBAIKAN: Reset totalMeteorsFallen saat refresh/tutup
+window.addEventListener('beforeunload', ()=> {
+  totalMeteorsFallen = 0;
+  saveData();
+});
+
+
+/* initial UI wiring */
+player.skin = invData.activeSkin;
+// ⚡️ UPDATE: Set initial lives
+if(player.skin === 'golden') player.lives = 3;
+else if(player.skin === 'rainbow') player.lives = 3;
+else if(player.skin === 'diamond') player.lives = 4;
+else player.lives = 1;
+
+document.getElementById('skinText').innerText = 'Skin: ' + player.skin; 
+if(isCheatActive){ currentScoreMultiplier = 3; document.getElementById('cheatStatus').style.display = 'block'; }
+document.getElementById('coinHud').innerText = '💰 Koin: ' + coinData;
+updateLaserButtonVisibility();
+updateLifeHud();
+
+/* =========================
+   Save / load
+   ========================= */
+
+function saveData(){
+  localStorage.setItem('inventory', JSON.stringify(invData));
+  localStorage.setItem('coins', coinData);
+  localStorage.setItem('totalMeteorsFallen', totalMeteorsFallen);
+}
+
+/* =========================
+   Game loop: update UI timers
+   ========================= */
+
+setInterval(()=> {
+  updateLaserButtonText();
+  updateLifeHud();
+}, 500);
+
+</script>
+</body>
+</html>
